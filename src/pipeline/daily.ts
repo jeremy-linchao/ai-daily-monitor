@@ -4,6 +4,7 @@ import { ArxivSource } from '../sources/arxiv.js'
 import { HuggingFaceSource } from '../sources/huggingface.js'
 import { HackerNewsSource } from '../sources/hackernews.js'
 import { GitHubTrendingSource } from '../sources/github-trending.js'
+import { BlogsSource } from '../sources/blogs.js'
 import { dedup } from '../llm/dedup.js'
 import { scoreItems } from '../llm/scorer.js'
 import { summarizeItems } from '../llm/summarizer.js'
@@ -18,6 +19,7 @@ function getSources(): DataSource[] {
     new HuggingFaceSource(),
     new HackerNewsSource(),
     new GitHubTrendingSource(),
+    new BlogsSource(),
   ]
 }
 
