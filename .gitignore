@@ -4,3 +4,16 @@ dist/
 *.tsbuildinfo
 coverage/
 reports/
+logs/
+pnpm-workspace.yaml
+
+# SDD docs (local only)
+CLAUDE.md
+SPEC.md
+ARCHITECTURE.md
+TASKS.md
+.claude/
+
+# OS files
+.DS_Store
+Thumbs.db

@@ -12,6 +12,10 @@ import { logger } from '../utils/logger.js'
 
 const MIN_SCORE = 5
 const MAX_REPORT_ITEMS = 50
+/** Per-source caps applied after scoring (keeps top N by score for each source) */
+const SOURCE_CAPS: Record<string, number> = {
+  arxiv: 10,
+}
 
 function getSources(): DataSource[] {
   return [
@@ -95,7 +99,19 @@ export async function runDailyPipeline(): Promise<DailyReport> {
   })
 
   scoredItems.sort((a, b) => b.score - a.score)
-  const finalItems = scoredItems.slice(0, MAX_REPORT_ITEMS)
+
+  // Apply per-source caps (e.g. keep only top 10 arXiv papers)
+  const sourceCounts = new Map<string, number>()
+  const cappedItems = scoredItems.filter(item => {
+    const cap = SOURCE_CAPS[item.sourceId]
+    if (cap === undefined) return true
+    const count = sourceCounts.get(item.sourceId) ?? 0
+    if (count >= cap) return false
+    sourceCounts.set(item.sourceId, count + 1)
+    return true
+  })
+
+  const finalItems = cappedItems.slice(0, MAX_REPORT_ITEMS)
 
   const report: DailyReport = {
     date: today,
