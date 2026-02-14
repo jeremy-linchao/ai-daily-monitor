@@ -5,7 +5,7 @@ import { logger } from '../utils/logger.js'
 
 const ARXIV_API = 'https://export.arxiv.org/api/query'
 const CATEGORIES = ['cs.AI', 'cs.CL', 'cs.LG', 'cs.CV']
-const MAX_RESULTS = 100
+const MAX_RESULTS = 50
 
 interface ArxivEntry {
   id: string

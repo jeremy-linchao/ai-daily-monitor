@@ -9,6 +9,9 @@ import { scoreItems } from '../llm/scorer.js'
 import { summarizeItems } from '../llm/summarizer.js'
 import { logger } from '../utils/logger.js'
 
+const MIN_SCORE = 5
+const MAX_REPORT_ITEMS = 50
+
 function getSources(): DataSource[] {
   return [
     new ArxivSource(),
@@ -56,16 +59,30 @@ export async function runDailyPipeline(): Promise<DailyReport> {
   // Step 2: Dedup
   const { items: dedupedItems, dedupKeys } = await dedup(rawItems)
 
-  // Step 3: Score
+  // Step 3: Score all items
   const scores = await scoreItems(dedupedItems)
 
-  // Step 4: Summarize
-  const summaries = await summarizeItems(dedupedItems)
-
-  // Step 5: Merge into ScoredItems
-  const scoredItems: ScoredItem[] = dedupedItems.map(item => {
+  // Step 4: Filter by score — only summarize high-value items (saves LLM tokens)
+  const worthyItems: RawItem[] = []
+  const worthyScores = new Map<string, { score: number; tags: string[] }>()
+  for (const item of dedupedItems) {
     const key = `${item.sourceId}:${item.externalId}`
-    const scoreData = scores.get(key) ?? { score: 5, tags: [] }
+    const scoreData = scores.get(key)
+    const score = scoreData?.score ?? 5
+    if (score >= MIN_SCORE) {
+      worthyItems.push(item)
+      if (scoreData) worthyScores.set(key, scoreData)
+    }
+  }
+  logger.info(`Filtered to ${worthyItems.length} items (score >= ${MIN_SCORE})`)
+
+  // Step 5: Summarize only worthy items
+  const summaries = await summarizeItems(worthyItems)
+
+  // Step 6: Merge into ScoredItems, sort, and cap
+  const scoredItems: ScoredItem[] = worthyItems.map(item => {
+    const key = `${item.sourceId}:${item.externalId}`
+    const scoreData = worthyScores.get(key) ?? { score: 5, tags: [] }
     return {
       ...item,
       score: scoreData.score,
@@ -75,15 +92,15 @@ export async function runDailyPipeline(): Promise<DailyReport> {
     }
   })
 
-  // Step 6: Sort by score descending
   scoredItems.sort((a, b) => b.score - a.score)
+  const finalItems = scoredItems.slice(0, MAX_REPORT_ITEMS)
 
   const report: DailyReport = {
     date: today,
-    items: scoredItems,
+    items: finalItems,
     generatedAt: new Date(),
   }
 
-  logger.info(`Pipeline complete: ${report.items.length} items in report`)
+  logger.info(`Pipeline complete: ${finalItems.length} items in report (from ${dedupedItems.length} total)`)
   return report
 }
