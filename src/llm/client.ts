@@ -23,7 +23,7 @@ export async function callLLM(prompt: string, systemPrompt?: string): Promise<st
 
   const completion = await openai.chat.completions.create({
     model: 'deepseek-chat',
-    max_tokens: 4096,
+    max_tokens: 8192,
     messages: [
       { role: 'system', content: systemPrompt ?? 'You are a helpful AI assistant.' },
       { role: 'user', content: prompt },
@@ -35,4 +35,17 @@ export async function callLLM(prompt: string, systemPrompt?: string): Promise<st
     throw new Error('Empty response from DeepSeek')
   }
   return content
+}
+
+/** Extract JSON array from LLM response that may be wrapped in markdown code blocks */
+export function extractJson(text: string): string {
+  // Try to extract from ```json ... ``` or ``` ... ```
+  const codeBlockMatch = text.match(/```(?:json)?\s*\n?([\s\S]*?)\n?```/)
+  if (codeBlockMatch) return codeBlockMatch[1].trim()
+
+  // Try to find raw JSON array
+  const arrayMatch = text.match(/\[[\s\S]*\]/)
+  if (arrayMatch) return arrayMatch[0]
+
+  return text.trim()
 }

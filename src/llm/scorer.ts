@@ -1,4 +1,4 @@
-import { callLLM } from './client.js'
+import { callLLM, extractJson } from './client.js'
 import type { RawItem } from '../types.js'
 import { logger } from '../utils/logger.js'
 
@@ -11,13 +11,11 @@ const SYSTEM_PROMPT = `你是一个 AI/科技领域的重要性评估专家。�
 - 3-4: 一般性内容、增量改进
 - 1-2: 边缘内容、低关注度
 
-考虑因素：
-- 来源权威性（顶会论文 > 博客）
-- 社区关注度（HN 高分、GitHub 高星）
-- 创新程度
-- 实际影响力
+考虑因素：来源权威性、社区关注度、创新程度、实际影响力。
 
-返回纯 JSON 格式，不要 markdown 代码块`
+只返回 JSON 数组，不要任何其他文字。`
+
+const BATCH_SIZE = 30
 
 interface ScoreResult {
   index: number
@@ -28,40 +26,41 @@ interface ScoreResult {
 export async function scoreItems(items: RawItem[]): Promise<Map<string, { score: number; tags: string[] }>> {
   if (items.length === 0) return new Map()
 
-  const batch = items.map((item, i) => ({
-    index: i,
-    title: item.title,
-    content: item.content?.slice(0, 300) ?? '',
-    source: item.sourceId,
-    metadata: item.metadata,
-  }))
-
-  const prompt = `评估以下 ${items.length} 篇文章的重要性。
-
-文章列表：
-${JSON.stringify(batch, null, 2)}
-
-返回 JSON 数组，格式：[{"index": 0, "score": 7, "tags": ["LLM", "效率优化"]}, ...]
-- score: 1-10 的整数
-- tags: 2-4 个中文标签`
-
-  logger.info(`Scoring ${items.length} items...`)
-  const response = await callLLM(prompt, SYSTEM_PROMPT)
-
   const scores = new Map<string, { score: number; tags: string[] }>()
-  try {
-    const parsed = JSON.parse(response) as ScoreResult[]
-    for (const entry of parsed) {
-      const item = items[entry.index]
-      if (item) {
-        scores.set(`${item.sourceId}:${item.externalId}`, {
-          score: Math.min(10, Math.max(1, Math.round(entry.score))),
-          tags: entry.tags,
-        })
+
+  for (let start = 0; start < items.length; start += BATCH_SIZE) {
+    const chunk = items.slice(start, start + BATCH_SIZE)
+    const batch = chunk.map((item, i) => ({
+      index: i,
+      title: item.title,
+      content: item.content?.slice(0, 200) ?? '',
+      source: item.sourceId,
+    }))
+
+    const prompt = `评估以下 ${chunk.length} 篇文章的重要性。
+
+${JSON.stringify(batch)}
+
+返回 JSON 数组：[{"index": 0, "score": 7, "tags": ["LLM", "效率优化"]}, ...]
+score: 1-10 整数, tags: 2-3 个中文标签`
+
+    logger.info(`Scoring batch ${start + 1}-${start + chunk.length} of ${items.length}...`)
+    const response = await callLLM(prompt, SYSTEM_PROMPT)
+
+    try {
+      const parsed = JSON.parse(extractJson(response)) as ScoreResult[]
+      for (const entry of parsed) {
+        const item = chunk[entry.index]
+        if (item) {
+          scores.set(`${item.sourceId}:${item.externalId}`, {
+            score: Math.min(10, Math.max(1, Math.round(entry.score))),
+            tags: entry.tags ?? [],
+          })
+        }
       }
+    } catch {
+      logger.error(`Failed to parse scorer response for batch ${start + 1}-${start + chunk.length}`)
     }
-  } catch {
-    logger.error('Failed to parse scorer response')
   }
 
   return scores

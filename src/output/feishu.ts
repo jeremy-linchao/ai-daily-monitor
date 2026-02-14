@@ -3,8 +3,8 @@ import { logger } from '../utils/logger.js'
 import type { DailyReport } from '../types.js'
 
 export async function pushToFeishu(report: DailyReport, markdown: string): Promise<void> {
-  if (!config.feishuWebhookUrl) {
-    logger.warn('FEISHU_WEBHOOK_URL not set, skipping Feishu push')
+  if (!config.feishuWebhookUrl || config.feishuWebhookUrl.includes('xxxxx')) {
+    logger.warn('FEISHU_WEBHOOK_URL not configured, skipping Feishu push')
     return
   }
 

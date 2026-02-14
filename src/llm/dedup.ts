@@ -1,4 +1,4 @@
-import { callLLM } from './client.js'
+import { callLLM, extractJson } from './client.js'
 import type { RawItem } from '../types.js'
 import { logger } from '../utils/logger.js'
 
@@ -10,7 +10,7 @@ const SYSTEM_PROMPT = `你是一个去重专家。你的任务是识别多个数
 - 同一事件的不同角度报道 → 合并
 - 仅主题相似但不是同一事件 → 不合并
 
-返回纯 JSON 格式，不要 markdown 代码块`
+只返回 JSON 数组，不要任何其他文字。`
 
 interface DedupGroup {
   keepIndex: number
@@ -27,26 +27,21 @@ export async function dedup(items: RawItem[]): Promise<{ items: RawItem[]; dedup
     return { items, dedupKeys }
   }
 
+  // Only send titles and URLs for dedup (much smaller payload)
   const batch = items.map((item, i) => ({
     index: i,
     title: item.title,
     source: item.sourceId,
     url: item.url,
-    content: item.content?.slice(0, 200) ?? '',
   }))
 
   const prompt = `分析以下 ${items.length} 个条目，找出重复项（同一事件/论文/项目）。
 
 条目列表：
-${JSON.stringify(batch, null, 2)}
+${JSON.stringify(batch)}
 
-返回 JSON 数组，每组重复中保留最佳来源：
-[{"keepIndex": 0, "duplicateIndices": [3, 7], "dedupKey": "简短描述"}, ...]
-
-- keepIndex: 保留的条目索引（优先保留有更多信息的来源）
-- duplicateIndices: 要去掉的重复条目索引
-- dedupKey: 该事件的简短标识
-- 没有重复的条目也要包含，duplicateIndices 为空数组`
+只返回有重复的组，格式：[{"keepIndex": 0, "duplicateIndices": [3], "dedupKey": "简短描述"}, ...]
+如果没有任何重复，返回空数组 []`
 
   logger.info(`Deduplicating ${items.length} items...`)
   const response = await callLLM(prompt, SYSTEM_PROMPT)
@@ -55,7 +50,7 @@ ${JSON.stringify(batch, null, 2)}
   const removeIndices = new Set<number>()
 
   try {
-    const parsed = JSON.parse(response) as DedupGroup[]
+    const parsed = JSON.parse(extractJson(response)) as DedupGroup[]
     for (const group of parsed) {
       const keepItem = items[group.keepIndex]
       if (keepItem) {
@@ -71,7 +66,6 @@ ${JSON.stringify(batch, null, 2)}
 
   const dedupedItems = items.filter((_, i) => !removeIndices.has(i))
 
-  // Ensure all kept items have a dedup key
   for (const item of dedupedItems) {
     const key = `${item.sourceId}:${item.externalId}`
     if (!dedupKeys.has(key)) {
