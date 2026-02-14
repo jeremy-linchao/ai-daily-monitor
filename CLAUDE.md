@@ -6,7 +6,7 @@
 - Package manager: pnpm
 - Test: vitest
 - Build: tsup
-- LLM SDK: @anthropic-ai/sdk
+- LLM: DeepSeek API (via OpenAI SDK, compatible interface)
 
 ## Coding Standards
 

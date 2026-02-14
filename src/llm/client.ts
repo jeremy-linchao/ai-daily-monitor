@@ -1,33 +1,38 @@
-import Anthropic from '@anthropic-ai/sdk'
+import OpenAI from 'openai'
 import { config } from '../config.js'
 import { logger } from '../utils/logger.js'
 
-let client: Anthropic | null = null
+let client: OpenAI | null = null
 
-export function getClient(): Anthropic {
+export function getClient(): OpenAI {
   if (!client) {
-    if (!config.anthropicApiKey) {
-      throw new Error('ANTHROPIC_API_KEY is not set')
+    if (!config.deepseekApiKey) {
+      throw new Error('DEEPSEEK_API_KEY is not set')
     }
-    client = new Anthropic({ apiKey: config.anthropicApiKey })
+    client = new OpenAI({
+      apiKey: config.deepseekApiKey,
+      baseURL: 'https://api.deepseek.com',
+    })
   }
   return client
 }
 
 export async function callLLM(prompt: string, systemPrompt?: string): Promise<string> {
-  const anthropic = getClient()
-  logger.debug('Calling LLM...')
+  const openai = getClient()
+  logger.debug('Calling DeepSeek LLM...')
 
-  const message = await anthropic.messages.create({
-    model: 'claude-sonnet-4-5-20250929',
+  const completion = await openai.chat.completions.create({
+    model: 'deepseek-chat',
     max_tokens: 4096,
-    system: systemPrompt ?? 'You are a helpful AI assistant.',
-    messages: [{ role: 'user', content: prompt }],
+    messages: [
+      { role: 'system', content: systemPrompt ?? 'You are a helpful AI assistant.' },
+      { role: 'user', content: prompt },
+    ],
   })
 
-  const block = message.content[0]
-  if (block.type !== 'text') {
-    throw new Error(`Unexpected response type: ${block.type}`)
+  const content = completion.choices[0]?.message?.content
+  if (!content) {
+    throw new Error('Empty response from DeepSeek')
   }
-  return block.text
+  return content
 }
