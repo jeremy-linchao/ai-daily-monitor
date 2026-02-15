@@ -1,11 +1,22 @@
 import type { DailyReport } from '../types.js'
+import { config } from '../config.js'
+
+function toBeijingTime(date: Date): string {
+  return date.toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai', hour12: false })
+}
+
+function getModelName(): string {
+  if (config.llmProvider === 'anthropic') return 'Claude Sonnet 4.5 (Anthropic)'
+  return 'DeepSeek Chat (DeepSeek)'
+}
 
 export function generateMarkdown(report: DailyReport): string {
   const lines: string[] = []
 
   lines.push(`# AI 日报 - ${report.date}`)
   lines.push('')
-  lines.push(`> 生成时间: ${report.generatedAt.toISOString()}`)
+  lines.push(`> 生成时间: ${toBeijingTime(report.generatedAt)} (北京时间)`)
+  lines.push(`> 分析模型: ${getModelName()}`)
   lines.push(`> 共 ${report.items.length} 条`)
   lines.push('')
 
