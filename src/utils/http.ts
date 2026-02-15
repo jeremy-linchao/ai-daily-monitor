@@ -37,3 +37,6 @@ export async function fetchText(url: string, init?: RequestInit): Promise<string
   }
   return res.text()
 }
+
+/** Proxy-aware fetch for use as SDK custom fetch */
+export { proxyFetch }
