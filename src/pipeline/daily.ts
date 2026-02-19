@@ -7,15 +7,32 @@ import { GitHubTrendingSource } from '../sources/github-trending.js'
 import { BlogsSource } from '../sources/blogs.js'
 import { dedup } from '../llm/dedup.js'
 import { scoreItems } from '../llm/scorer.js'
-import { summarizeItems } from '../llm/summarizer.js'
+import { summarizeItems, generateHighlights } from '../llm/summarizer.js'
 import { logger } from '../utils/logger.js'
 
 const MIN_SCORE = 5
-const MAX_REPORT_ITEMS = 50
-/** Per-source caps applied after scoring (keeps top N by score for each source) */
-const SOURCE_CAPS: Record<string, number> = {
-  arxiv: 10,
+const ITEMS_PER_CATEGORY = 5
+
+/** Map sourceId to display category for grouping and capping */
+export function getCategory(sourceId: string): string {
+  if (sourceId.endsWith('-blog')) return '官方博客'
+  switch (sourceId) {
+    case 'hackernews': return '技术热点'
+    case 'github-trending': return '开源项目'
+    case 'arxiv': return '论文（arXiv）'
+    case 'huggingface': return '论文（HuggingFace）'
+    default: return '其他'
+  }
 }
+
+/** Display order for categories */
+const CATEGORY_ORDER = [
+  '技术热点',
+  '开源项目',
+  '官方博客',
+  '论文（arXiv）',
+  '论文（HuggingFace）',
+]
 
 function getSources(): DataSource[] {
   return [
@@ -59,7 +76,7 @@ export async function runDailyPipeline(): Promise<DailyReport> {
 
   if (rawItems.length === 0) {
     logger.warn('No items fetched, generating empty report')
-    return { date: today, items: [], generatedAt: new Date() }
+    return { date: today, items: [], highlights: '本周暂无重要 AI 资讯。', generatedAt: new Date() }
   }
 
   // Step 2: Dedup
@@ -68,7 +85,7 @@ export async function runDailyPipeline(): Promise<DailyReport> {
   // Step 3: Score all items
   const scores = await scoreItems(dedupedItems)
 
-  // Step 4: Filter by score — only summarize high-value items (saves LLM tokens)
+  // Step 4: Filter by score
   const worthyItems: RawItem[] = []
   const worthyScores = new Map<string, { score: number; tags: string[] }>()
   for (const item of dedupedItems) {
@@ -82,42 +99,64 @@ export async function runDailyPipeline(): Promise<DailyReport> {
   }
   logger.info(`Filtered to ${worthyItems.length} items (score >= ${MIN_SCORE})`)
 
-  // Step 5: Summarize only worthy items
-  const summaries = await summarizeItems(worthyItems)
-
-  // Step 6: Merge into ScoredItems, sort, and cap
-  const scoredItems: ScoredItem[] = worthyItems.map(item => {
+  // Step 5: Pre-select top items per category (saves LLM tokens on summarization)
+  const scored: Array<{ item: RawItem; score: number; tags: string[]; dedupKey: string }> = worthyItems.map(item => {
     const key = `${item.sourceId}:${item.externalId}`
     const scoreData = worthyScores.get(key) ?? { score: 5, tags: [] }
-    const summaryResult = summaries.get(key)
     return {
-      ...item,
-      title: summaryResult?.titleZh ?? item.title,
+      item,
       score: scoreData.score,
       tags: scoreData.tags,
-      summary: summaryResult?.summary ?? item.content?.slice(0, 150) ?? '',
       dedupKey: dedupKeys.get(key) ?? item.title.toLowerCase().slice(0, 50),
     }
   })
+  scored.sort((a, b) => b.score - a.score)
 
-  scoredItems.sort((a, b) => b.score - a.score)
-
-  // Apply per-source caps (e.g. keep only top 10 arXiv papers)
-  const sourceCounts = new Map<string, number>()
-  const cappedItems = scoredItems.filter(item => {
-    const cap = SOURCE_CAPS[item.sourceId]
-    if (cap === undefined) return true
-    const count = sourceCounts.get(item.sourceId) ?? 0
-    if (count >= cap) return false
-    sourceCounts.set(item.sourceId, count + 1)
+  // Group by category and take top N per category
+  const categoryCounts = new Map<string, number>()
+  const selectedItems = scored.filter(entry => {
+    const category = getCategory(entry.item.sourceId)
+    const count = categoryCounts.get(category) ?? 0
+    if (count >= ITEMS_PER_CATEGORY) return false
+    categoryCounts.set(category, count + 1)
     return true
   })
 
-  const finalItems = cappedItems.slice(0, MAX_REPORT_ITEMS)
+  logger.info(`Selected ${selectedItems.length} items (top ${ITEMS_PER_CATEGORY} per category)`)
+
+  // Step 6: Summarize only selected items
+  const itemsToSummarize = selectedItems.map(e => e.item)
+  const summaries = await summarizeItems(itemsToSummarize)
+
+  // Step 7: Build final ScoredItems in category order
+  const scoredItems: ScoredItem[] = selectedItems.map(entry => {
+    const key = `${entry.item.sourceId}:${entry.item.externalId}`
+    const summaryResult = summaries.get(key)
+    return {
+      ...entry.item,
+      title: summaryResult?.titleZh ?? entry.item.title,
+      score: entry.score,
+      tags: entry.tags,
+      summary: summaryResult?.summary ?? entry.item.content?.slice(0, 150) ?? '',
+      dedupKey: entry.dedupKey,
+    }
+  })
+
+  // Sort by category order, then by score within category
+  const finalItems = scoredItems.sort((a, b) => {
+    const catA = CATEGORY_ORDER.indexOf(getCategory(a.sourceId))
+    const catB = CATEGORY_ORDER.indexOf(getCategory(b.sourceId))
+    if (catA !== catB) return catA - catB
+    return b.score - a.score
+  })
+
+  // Step 8: Generate highlights from top items
+  const highlights = await generateHighlights(finalItems)
 
   const report: DailyReport = {
     date: today,
     items: finalItems,
+    highlights,
     generatedAt: new Date(),
   }
 

@@ -19,5 +19,6 @@ export interface ScoredItem extends RawItem {
 export interface DailyReport {
   date: string
   items: ScoredItem[]
+  highlights: string
   generatedAt: Date
 }

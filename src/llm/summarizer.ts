@@ -1,5 +1,5 @@
 import { callLLM, extractJson } from './client.js'
-import type { RawItem } from '../types.js'
+import type { RawItem, ScoredItem } from '../types.js'
 import { logger } from '../utils/logger.js'
 
 const SYSTEM_PROMPT = `你是一个 AI/科技领域的技术编辑。你的任务是为技术文章生成简洁的中文摘要。
@@ -60,4 +60,38 @@ ${JSON.stringify(batch)}
   }
 
   return summaries
+}
+
+const HIGHLIGHTS_PROMPT = `你是一个 AI/科技领域的资深编辑。请根据本周最重要的 AI 资讯，撰写一段精华总结。
+
+要求：
+- 用中文输出
+- 3-5 句话概括本周 AI 领域最值得关注的动态和趋势
+- 突出重大发布、突破性研究、行业趋势
+- 语言简洁有力，适合快速阅读
+- 直接输出总结文本，不要任何前缀或格式标记`
+
+export async function generateHighlights(items: ScoredItem[]): Promise<string> {
+  if (items.length === 0) return '本周暂无重要 AI 资讯。'
+
+  const topItems = items.slice(0, 10).map(item => ({
+    title: item.title,
+    summary: item.summary,
+    score: item.score,
+    source: item.sourceId,
+  }))
+
+  const prompt = `以下是本周最重要的 AI 资讯（按重要性排序）：
+
+${JSON.stringify(topItems)}
+
+请撰写本周 AI 领域精华总结。`
+
+  logger.info('Generating weekly highlights...')
+  try {
+    return await callLLM(prompt, HIGHLIGHTS_PROMPT)
+  } catch {
+    logger.error('Failed to generate highlights')
+    return '本周精华总结生成失败。'
+  }
 }
