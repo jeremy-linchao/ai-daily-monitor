@@ -50,7 +50,7 @@ async function fetchAll(sources: DataSource[]): Promise<RawItem[]> {
 
 export async function runDailyPipeline(): Promise<DailyReport> {
   const today = new Date().toISOString().slice(0, 10)
-  logger.info(`Starting daily pipeline for ${today}`)
+  logger.info(`Starting weekly pipeline for ${today}`)
 
   // Step 1: Fetch from all sources
   const sources = getSources()

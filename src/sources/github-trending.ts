@@ -10,8 +10,8 @@ export class GitHubTrendingSource implements DataSource {
   name = 'github-trending'
 
   async fetch(): Promise<RawItem[]> {
-    logger.info('Fetching GitHub Trending...')
-    const html = await fetchText(`${GITHUB_TRENDING_URL}?since=daily`, {
+    logger.info('Fetching GitHub Trending (weekly)...')
+    const html = await fetchText(`${GITHUB_TRENDING_URL}?since=weekly`, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (compatible; ai-daily-monitor/0.1)',
       },

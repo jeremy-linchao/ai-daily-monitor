@@ -33,28 +33,45 @@ export class HuggingFaceSource implements DataSource {
   name = 'huggingface'
 
   async fetch(): Promise<RawItem[]> {
-    const today = new Date().toISOString().slice(0, 10)
-    const url = `${HF_API}?date=${today}`
+    const allPapers: RawItem[] = []
+    const seen = new Set<string>()
 
-    logger.info(`Fetching HuggingFace daily papers...`)
-    const papers = await fetchJson<HFDailyPaper[]>(url)
-    logger.info(`Fetched ${papers.length} HuggingFace papers`)
+    // Fetch past 7 days
+    for (let i = 0; i < 7; i++) {
+      const date = new Date()
+      date.setDate(date.getDate() - i)
+      const dateStr = date.toISOString().slice(0, 10)
+      const url = `${HF_API}?date=${dateStr}`
 
-    return papers.map(item => ({
-      sourceId: this.name,
-      externalId: item.paper.id,
-      title: item.paper.title,
-      url: `https://huggingface.co/papers/${item.paper.id}`,
-      content: item.paper.summary,
-      authors: item.paper.authors.map(a => a.name),
-      publishedAt: new Date(item.publishedAt),
-      metadata: {
-        upvotes: item.paper.upvotes,
-        aiSummary: item.paper.ai_summary,
-        aiKeywords: item.paper.ai_keywords,
-        githubRepo: item.paper.githubRepo,
-        githubStars: item.paper.githubStars,
-      },
-    }))
+      logger.info(`Fetching HuggingFace papers for ${dateStr}...`)
+      try {
+        const papers = await fetchJson<HFDailyPaper[]>(url)
+        for (const item of papers) {
+          if (seen.has(item.paper.id)) continue
+          seen.add(item.paper.id)
+          allPapers.push({
+            sourceId: this.name,
+            externalId: item.paper.id,
+            title: item.paper.title,
+            url: `https://huggingface.co/papers/${item.paper.id}`,
+            content: item.paper.summary,
+            authors: item.paper.authors.map(a => a.name),
+            publishedAt: new Date(item.publishedAt),
+            metadata: {
+              upvotes: item.paper.upvotes,
+              aiSummary: item.paper.ai_summary,
+              aiKeywords: item.paper.ai_keywords,
+              githubRepo: item.paper.githubRepo,
+              githubStars: item.paper.githubStars,
+            },
+          })
+        }
+      } catch (err) {
+        logger.warn(`Failed to fetch HuggingFace papers for ${dateStr}:`, err)
+      }
+    }
+
+    logger.info(`Fetched ${allPapers.length} HuggingFace papers (past 7 days)`)
+    return allPapers
   }
 }

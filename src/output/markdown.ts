@@ -13,7 +13,7 @@ function getModelName(): string {
 export function generateMarkdown(report: DailyReport): string {
   const lines: string[] = []
 
-  lines.push(`# AI 日报 - ${report.date}`)
+  lines.push(`# AI 周报 - ${report.date}`)
   lines.push('')
   lines.push(`> 生成时间: ${toBeijingTime(report.generatedAt)} (北京时间)`)
   lines.push(`> 分析模型: ${getModelName()}`)
@@ -34,7 +34,7 @@ export function generateMarkdown(report: DailyReport): string {
     lines.push(item.summary)
     lines.push('')
     lines.push(`🔗 [原文链接](${item.url})`)
-    if (item.authors?.length && item.sourceId !== 'arxiv') {
+    if (item.authors?.length && item.sourceId !== 'arxiv' && item.sourceId !== 'huggingface') {
       lines.push(`👤 ${item.authors.join(', ')}`)
     }
     lines.push('')

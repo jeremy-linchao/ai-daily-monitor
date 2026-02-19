@@ -9,7 +9,7 @@ const SYSTEM_PROMPT = `你是一个 AI/科技领域的技术编辑。你的任�
 - 每篇摘要 2-3 句话，不超过 150 字
 - 突出核心创新点和实际意义
 - 使用专业但易懂的语言
-- 如果文章来源是 arxiv，还需额外返回 title_zh 字段（中文翻译标题）
+- 如果文章来源是 arxiv 或 huggingface，还需额外返回 title_zh 字段（中文翻译标题）
 
 只返回 JSON 数组，不要任何其他文字。`
 
@@ -38,7 +38,7 @@ export async function summarizeItems(items: RawItem[]): Promise<Map<string, Summ
 
 ${JSON.stringify(batch)}
 
-返回 JSON 数组：[{"index": 0, "summary": "中文摘要...", "title_zh": "中文标题（仅 arxiv 来源需要，其他来源省略此字段）"}, ...]`
+返回 JSON 数组：[{"index": 0, "summary": "中文摘要...", "title_zh": "中文标题（仅 arxiv/huggingface 来源需要，其他来源省略此字段）"}, ...]`
 
     logger.info(`Summarizing batch ${start + 1}-${start + chunk.length} of ${items.length}...`)
     const response = await callLLM(prompt, SYSTEM_PROMPT)

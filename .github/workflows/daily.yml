@@ -1,15 +1,15 @@
-name: Daily AI Report
+name: Weekly AI Report
 
 on:
   schedule:
-    # UTC 23:00 = Beijing 07:00 (next day)
-    - cron: '0 23 * * *'
+    # UTC 00:00 Saturday = Beijing 08:00 Saturday
+    - cron: '0 0 * * 6'
   workflow_dispatch: # Allow manual trigger
 
 jobs:
   generate-report:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
 
     steps:
       - uses: actions/checkout@v4
@@ -25,7 +25,7 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      - name: Generate daily report
+      - name: Generate weekly report
         env:
           LLM_PROVIDER: ${{ secrets.LLM_PROVIDER }}
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}

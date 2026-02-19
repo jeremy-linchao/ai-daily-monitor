@@ -8,7 +8,7 @@ export async function pushToFeishu(report: DailyReport, markdown: string): Promi
     return
   }
 
-  const title = `AI 日报 - ${report.date} (${report.items.length} 条)`
+  const title = `AI 周报 - ${report.date} (${report.items.length} 条)`
 
   const body = {
     msg_type: 'interactive',
