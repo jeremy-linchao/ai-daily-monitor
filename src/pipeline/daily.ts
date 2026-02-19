@@ -89,11 +89,13 @@ export async function runDailyPipeline(): Promise<DailyReport> {
   const scoredItems: ScoredItem[] = worthyItems.map(item => {
     const key = `${item.sourceId}:${item.externalId}`
     const scoreData = worthyScores.get(key) ?? { score: 5, tags: [] }
+    const summaryResult = summaries.get(key)
     return {
       ...item,
+      title: summaryResult?.titleZh ?? item.title,
       score: scoreData.score,
       tags: scoreData.tags,
-      summary: summaries.get(key) ?? item.content?.slice(0, 150) ?? '',
+      summary: summaryResult?.summary ?? item.content?.slice(0, 150) ?? '',
       dedupKey: dedupKeys.get(key) ?? item.title.toLowerCase().slice(0, 50),
     }
   })

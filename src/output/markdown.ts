@@ -34,7 +34,7 @@ export function generateMarkdown(report: DailyReport): string {
     lines.push(item.summary)
     lines.push('')
     lines.push(`🔗 [原文链接](${item.url})`)
-    if (item.authors?.length) {
+    if (item.authors?.length && item.sourceId !== 'arxiv') {
       lines.push(`👤 ${item.authors.join(', ')}`)
     }
     lines.push('')
