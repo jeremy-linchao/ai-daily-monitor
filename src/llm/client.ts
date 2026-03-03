@@ -75,7 +75,7 @@ async function callAnthropic(prompt: string, systemPrompt: string): Promise<stri
     : systemPrompt
 
   const message = await client.messages.create({
-    model: 'claude-sonnet-4-5-20250929',
+    model: 'claude-sonnet-4-6',
     max_tokens: 8192,
     system,
     messages: [

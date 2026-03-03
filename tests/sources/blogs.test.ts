@@ -38,6 +38,14 @@ const MOCK_HTML = `
   <a href="/news/">News</a>
 </body></html>`
 
+const MOCK_ARTICLE_PAGE = `
+<html>
+<head>
+  <meta property="og:description" content="Mistral Large 2 brings breakthrough performance in reasoning and multilingual tasks." />
+</head>
+<body><p>Article content here.</p></body>
+</html>`
+
 describe('BlogsSource', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
@@ -65,6 +73,41 @@ describe('BlogsSource', () => {
     expect(openaiItems[0].metadata).toMatchObject({
       blogName: 'OpenAI Blog',
     })
+  })
+
+  it('enriches HTML blog items with page content', async () => {
+    let callCount = 0
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+      callCount++
+      const url = typeof input === 'string' ? input : input.toString()
+
+      // First calls: RSS/HTML feed pages
+      if (url.includes('mistral.ai/news') && !url.includes('/news/')) {
+        return new Response(MOCK_HTML, { status: 200 })
+      }
+      if (url.includes('ai.meta.com/blog') && !url.includes('/blog/')) {
+        return new Response('<html><body></body></html>', { status: 200 })
+      }
+
+      // Article page enrichment requests
+      if (url.includes('/news/mistral-large-2') || url.includes('/news/codestral')) {
+        return new Response(MOCK_ARTICLE_PAGE, { status: 200 })
+      }
+
+      // RSS feeds and other requests
+      return new Response(MOCK_RSS, { status: 200 })
+    })
+
+    const source = new BlogsSource()
+    const items = await source.fetch()
+
+    // Mistral items should have enriched content
+    const mistralItems = items.filter(i => i.sourceId === 'mistral-blog')
+    for (const item of mistralItems) {
+      if (item.content) {
+        expect(item.content).toContain('Mistral Large 2')
+      }
+    }
   })
 
   it('handles feed failures gracefully', async () => {

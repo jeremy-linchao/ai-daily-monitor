@@ -1,9 +1,9 @@
-name: Weekly AI Report
+name: Daily AI Report
 
 on:
   schedule:
-    # UTC 00:00 Saturday = Beijing 08:00 Saturday
-    - cron: '0 0 * * 6'
+    # UTC 23:00 daily = Beijing 07:00 next day
+    - cron: '0 23 * * *'
   workflow_dispatch: # Allow manual trigger
 
 jobs:

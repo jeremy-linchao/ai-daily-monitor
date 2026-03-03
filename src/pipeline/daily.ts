@@ -34,6 +34,25 @@ const CATEGORY_ORDER = [
   '论文（HuggingFace）',
 ]
 
+/** Truncate text at a sentence boundary, avoiding mid-word cuts */
+function truncateAtSentence(text: string, maxLen: number): string {
+  if (!text) return ''
+  if (text.length <= maxLen) return text
+
+  const truncated = text.slice(0, maxLen)
+  // Try to cut at the last sentence-ending punctuation
+  const lastSentence = truncated.search(/[.。！!？?;；]\s*[^.。！!？?;；]*$/)
+  if (lastSentence > maxLen * 0.4) {
+    return truncated.slice(0, lastSentence + 1)
+  }
+  // Fallback: cut at last space to avoid mid-word break
+  const lastSpace = truncated.lastIndexOf(' ')
+  if (lastSpace > maxLen * 0.4) {
+    return truncated.slice(0, lastSpace) + '...'
+  }
+  return truncated + '...'
+}
+
 function getSources(): DataSource[] {
   return [
     new ArxivSource(),
@@ -137,7 +156,7 @@ export async function runDailyPipeline(): Promise<DailyReport> {
       title: summaryResult?.titleZh ?? entry.item.title,
       score: entry.score,
       tags: entry.tags,
-      summary: summaryResult?.summary ?? entry.item.content?.slice(0, 150) ?? '',
+      summary: summaryResult?.summary ?? truncateAtSentence(entry.item.content ?? '', 150),
       dedupKey: entry.dedupKey,
     }
   })

@@ -7,7 +7,7 @@ function toBeijingTime(date: Date): string {
 }
 
 function getModelName(): string {
-  if (config.llmProvider === 'anthropic') return 'Claude Sonnet 4.5 (Anthropic)'
+  if (config.llmProvider === 'anthropic') return 'Claude Sonnet 4.6 (Anthropic)'
   return 'DeepSeek Chat (DeepSeek)'
 }
 

@@ -4,6 +4,7 @@ import type { RawItem } from '../types.js'
 import type { DataSource } from './base.js'
 import { fetchText } from '../utils/http.js'
 import { logger } from '../utils/logger.js'
+import { enrichWithSnippets } from '../utils/content-enricher.js'
 
 interface BlogFeedConfig {
   id: string
@@ -132,7 +133,9 @@ async function fetchHTMLBlog(feed: BlogFeedConfig): Promise<RawItem[]> {
     })
   })
 
-  return items
+  // Enrich HTML blog items with page snippets (they have no content yet)
+  const enrichedItems = await enrichWithSnippets(items)
+  return enrichedItems
 }
 
 export class BlogsSource implements DataSource {

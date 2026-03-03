@@ -2,6 +2,7 @@ import type { RawItem } from '../types.js'
 import type { DataSource } from './base.js'
 import { fetchJson } from '../utils/http.js'
 import { logger } from '../utils/logger.js'
+import { enrichWithSnippets } from '../utils/content-enricher.js'
 
 const HN_API = 'https://hacker-news.firebaseio.com/v0'
 const TOP_STORIES_LIMIT = 30
@@ -32,7 +33,7 @@ export class HackerNewsSource implements DataSource {
     const validStories = stories.filter(s => s && s.type === 'story')
     logger.info(`Fetched ${validStories.length} Hacker News stories`)
 
-    return validStories.map(story => ({
+    const items: RawItem[] = validStories.map(story => ({
       sourceId: this.name,
       externalId: String(story.id),
       title: story.title,
@@ -44,5 +45,19 @@ export class HackerNewsSource implements DataSource {
         comments: story.descendants ?? 0,
       },
     }))
+
+    // Enrich items that have external URLs (skip Ask HN / HN self-pages)
+    const enrichable = items.filter(i => !i.url.includes('news.ycombinator.com'))
+    logger.info(`Enriching ${enrichable.length} HN stories with page content...`)
+    const enriched = await enrichWithSnippets(enrichable)
+
+    // Merge enriched content back
+    const enrichedMap = new Map(enriched.map(i => [i.externalId, i.content]))
+    for (const item of items) {
+      const content = enrichedMap.get(item.externalId)
+      if (content) item.content = content
+    }
+
+    return items
   }
 }
