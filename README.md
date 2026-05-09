@@ -89,7 +89,7 @@ pnpm start
 
 ### Schedule (macOS)
 
-Create `~/Library/LaunchAgents/com.ai-daily-monitor.plist` to run daily at 7:00 AM. If the machine is asleep at the scheduled time, it runs on wake.
+Create `~/Library/LaunchAgents/com.ai-daily-monitor.plist` to run every Monday at 7:00 AM. If the machine is asleep at the scheduled time, it runs on wake.
 
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
@@ -108,6 +108,8 @@ Create `~/Library/LaunchAgents/com.ai-daily-monitor.plist` to run daily at 7:00 
     <string>/path/to/ai-daily-monitor</string>
     <key>StartCalendarInterval</key>
     <dict>
+        <key>Weekday</key>
+        <integer>1</integer>
         <key>Hour</key>
         <integer>7</integer>
         <key>Minute</key>
@@ -125,7 +127,7 @@ launchctl load ~/Library/LaunchAgents/com.ai-daily-monitor.plist
 
 ```bash
 # crontab -e
-0 7 * * * cd /path/to/ai-daily-monitor && /path/to/pnpm start >> logs/cron.log 2>&1
+0 7 * * 1 cd /path/to/ai-daily-monitor && /path/to/pnpm start >> logs/cron.log 2>&1
 ```
 
 ## Feishu (Lark) Setup
